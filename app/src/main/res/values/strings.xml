@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Arrow Puzzle</string>
+    <string name="app_tagline">Slide Arrows, Solve Puzzles!</string>
+    <string name="cd_arrow_logo">Arrow Puzzle logo</string>
+    <string name="cd_back">Go back</string>
+    <string name="cd_pause">Pause game</string>
+    <string name="cd_settings">Open settings</string>
+    <string name="cd_sound_toggle">Toggle sound effects</string>
+    <string name="cd_coins">Coin balance</string>
+    <string name="cd_hint">Use hint</string>
+    <string name="cd_undo">Undo last move</string>
+    <string name="cd_restart">Restart level</string>
+    <string name="cd_guide">Toggle path guide</string>
+    <string name="cd_star_earned">Star earned</string>
+    <string name="cd_star_empty">Star not earned</string>
+    <string name="cd_level_locked">Level locked</string>
+</resources>
