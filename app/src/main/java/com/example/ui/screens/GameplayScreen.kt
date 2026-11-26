@@ -86,6 +86,7 @@ fun GameplayScreen(
     onToggleMusic: () -> Unit,
     onToggleVibration: () -> Unit,
     onWatchHintOffer: () -> Unit,
+    onWatchReviveOffer: () -> Unit,
     onDismissLowCoins: () -> Unit,
     onRefillHearts: () -> Unit,
     onGoHome: () -> Unit
@@ -390,7 +391,7 @@ fun GameplayScreen(
         )
     }
 
-    // Out of Hearts Recovery Dialog (Refill with 50 Coins or Restart)
+    // Out of Hearts Recovery Dialog (Watch Ad, Refill with 50 Coins, or Restart)
     if (gameState.isOutOfHearts) {
         AlertDialog(
             onDismissRequest = onRestartClick,
@@ -404,16 +405,28 @@ fun GameplayScreen(
             },
             title = { Text("Out of Hearts!") },
             text = {
-                Text(
-                    "You tapped 3 blocked arrows. Refill your 3 hearts for 50 coins to keep solving from here, or restart the level for free."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "You tapped 3 blocked arrows. Watch a short ad for +3 Hearts, refill for 50 coins, or restart the level."
+                    )
+                    GlossyButton(
+                        text = "Watch Ad (+3 Hearts)",
+                        onClick = onWatchReviveOffer,
+                        topColor = Color(0xFF38BDF8),
+                        bottomColor = Color(0xFF0284C7),
+                        bevelColor = Color(0xFF0369A1),
+                        height = 48.dp,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "out_of_hearts_watch_ad_button"
+                    )
+                }
             },
             confirmButton = {
                 GlossyButton(
-                    text = "Refill Hearts (50)",
+                    text = "Refill (50 Coins)",
                     onClick = onRefillHearts,
                     enabled = appState.preferences.coins >= 50,
-                    height = 48.dp,
+                    height = 46.dp,
                     testTag = "refill_hearts_button"
                 )
             },

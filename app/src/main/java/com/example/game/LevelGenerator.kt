@@ -5,28 +5,23 @@ import kotlin.random.Random
 
 object LevelGenerator {
 
-    const val TOTAL_LEVELS = 500
+    const val INITIAL_VISIBLE_LEVELS = 500
 
     fun generateLevel(levelNumber: Int): LevelSpec {
-        val clamped = levelNumber.coerceIn(1, TOTAL_LEVELS)
+        val clamped = levelNumber.coerceAtLeast(1)
         val difficulty = DifficultyTier.forLevel(clamped)
-
-        when (clamped) {
-            1 -> return buildTutorialLevel1()
-            2 -> return buildWarmupLevel2()
-            3 -> return buildWarmupLevel3()
-        }
-
         val config = configForLevel(clamped)
-        val seed = clamped.toLong() * 2654435761L + 9731L
-        val arrows = generateGuaranteedSolvableSnakingArrows(
+        val baseSeed = splitMix64(clamped.toLong() * 0x9E3779B97F4A7C15uL.toLong() + 0xBF58476D1CE4E5B9uL.toLong())
+
+        val arrows = generateVerifiedProceduralArrows(
             rows = config.rows,
             cols = config.cols,
             targetArrowCount = config.targetArrows,
+            minRequiredArrows = config.minRequiredArrows,
             minPathLen = config.minLen,
             maxPathLen = config.maxLen,
             organicMask = config.organicMask,
-            seed = seed
+            baseSeed = baseSeed
         )
 
         return LevelSpec(
@@ -52,14 +47,15 @@ object LevelGenerator {
             12 -> DifficultyTier.MEDIUM
             else -> DifficultyTier.HARD
         }
-        val arrows = generateGuaranteedSolvableSnakingArrows(
+        val arrows = generateVerifiedProceduralArrows(
             rows = size,
             cols = size,
             targetArrowCount = targetArrows,
+            minRequiredArrows = (targetArrows * 2) / 3,
             minPathLen = 3,
             maxPathLen = 10,
             organicMask = (variant == 1),
-            seed = hash xor 0x5A3C9F12L
+            baseSeed = splitMix64(hash xor 0x5A3C9F12L)
         )
         return LevelSpec(
             levelNumber = 0,
@@ -72,51 +68,109 @@ object LevelGenerator {
         )
     }
 
+    private fun splitMix64(input: Long): Long {
+        var z = input + 0x9E3779B97F4A7C15uL.toLong()
+        z = (z xor (z ushr 30)) * 0xBF58476D1CE4E5B9uL.toLong()
+        z = (z xor (z ushr 27)) * 0x94D049BB133111EBuL.toLong()
+        return z xor (z ushr 31)
+    }
+
     private data class LevelConfig(
         val rows: Int,
         val cols: Int,
         val targetArrows: Int,
+        val minRequiredArrows: Int,
         val minLen: Int,
         val maxLen: Int,
         val organicMask: Boolean
     )
 
     private fun configForLevel(level: Int): LevelConfig = when {
+        level == 1 -> LevelConfig(rows = 5, cols = 5, targetArrows = 4, minRequiredArrows = 3, minLen = 2, maxLen = 4, organicMask = false)
+        level == 2 -> LevelConfig(rows = 6, cols = 6, targetArrows = 6, minRequiredArrows = 4, minLen = 2, maxLen = 5, organicMask = false)
+        level == 3 -> LevelConfig(rows = 6, cols = 6, targetArrows = 8, minRequiredArrows = 5, minLen = 2, maxLen = 6, organicMask = false)
         // Beginner (4..50): 6x6 up to 8x8 clean interlocking snaking paths
         level <= 50 -> {
             val t = (level - 4).coerceAtLeast(0) / 46.0
             val size = (6 + (t * 2.5).toInt()).coerceIn(6, 8)
-            val arrows = (6 + (t * 9).toInt()).coerceIn(6, 15)
-            LevelConfig(size, size, arrows, minLen = 2, maxLen = 6, organicMask = false)
+            val arrows = (7 + (t * 8).toInt()).coerceIn(7, 15)
+            LevelConfig(size, size, arrows, minRequiredArrows = (arrows * 2) / 3, minLen = 2, maxLen = 6, organicMask = false)
         }
         // Normal / Easy (51..150): 9x9 up to 11x11
         level <= 150 -> {
             val t = (level - 51) / 99.0
             val size = (9 + (t * 2.5).toInt()).coerceIn(9, 11)
             val arrows = (15 + (t * 13).toInt()).coerceIn(15, 28)
-            LevelConfig(size, size, arrows, minLen = 3, maxLen = 9, organicMask = (level % 3 == 0))
+            LevelConfig(size, size, arrows, minRequiredArrows = (arrows * 2) / 3, minLen = 3, maxLen = 9, organicMask = (level % 3 == 0))
         }
         // Medium (151..250): 12x12 up to 14x14
         level <= 250 -> {
             val t = (level - 151) / 99.0
             val size = (12 + (t * 2.5).toInt()).coerceIn(12, 14)
             val arrows = (26 + (t * 16).toInt()).coerceIn(26, 42)
-            LevelConfig(size, size, arrows, minLen = 3, maxLen = 11, organicMask = (level % 3 == 1))
+            LevelConfig(size, size, arrows, minRequiredArrows = (arrows * 2) / 3, minLen = 3, maxLen = 11, organicMask = (level % 3 == 1))
         }
         // Hard (251..400): 14x14 up to 16x16
         level <= 400 -> {
             val t = (level - 251) / 149.0
             val size = (14 + (t * 2.5).toInt()).coerceIn(14, 16)
             val arrows = (38 + (t * 20).toInt()).coerceIn(38, 58)
-            LevelConfig(size, size, arrows, minLen = 3, maxLen = 13, organicMask = (level % 2 == 0))
+            LevelConfig(size, size, arrows, minRequiredArrows = (arrows * 2) / 3, minLen = 3, maxLen = 13, organicMask = (level % 2 == 0))
         }
-        // Expert (401..500): 17x17 up to 19x19 dense labyrinth clusters
+        // Expert / Unlimited (401+): cycles rich 16x16 to 19x19 dense labyrinth clusters endlessly
         else -> {
-            val t = (level - 401) / 99.0
-            val size = (17 + (t * 2.5).toInt()).coerceIn(17, 19)
-            val arrows = (54 + (t * 24).toInt()).coerceIn(54, 78)
-            LevelConfig(size, size, arrows, minLen = 3, maxLen = 15, organicMask = (level % 2 == 1))
+            val endlessOffset = level - 401
+            val wave = endlessOffset % 100
+            val t = wave / 99.0
+            val size = (16 + (t * 3.2).toInt()).coerceIn(16, 19)
+            val arrows = (50 + (t * 26).toInt() + ((endlessOffset / 100) % 4) * 2).coerceIn(50, 82)
+            LevelConfig(size, size, arrows, minRequiredArrows = (arrows * 2) / 3, minLen = 3, maxLen = 15, organicMask = (level % 2 == 1))
         }
+    }
+
+    private fun generateVerifiedProceduralArrows(
+        rows: Int,
+        cols: Int,
+        targetArrowCount: Int,
+        minRequiredArrows: Int,
+        minPathLen: Int,
+        maxPathLen: Int,
+        organicMask: Boolean,
+        baseSeed: Long
+    ): List<ArrowTile> {
+        var bestCandidate: List<ArrowTile> = emptyList()
+        for (attempt in 0 until 8) {
+            val attemptSeed = splitMix64(baseSeed + attempt.toLong() * 0x517CC1B727220A95L)
+            val candidate = generateGuaranteedSolvableSnakingArrows(
+                rows = rows,
+                cols = cols,
+                targetArrowCount = targetArrowCount,
+                minPathLen = minPathLen,
+                maxPathLen = maxPathLen,
+                organicMask = organicMask,
+                seed = attemptSeed
+            )
+            if (candidate.isNotEmpty() && PuzzleEngine.isSolvable(candidate, rows, cols)) {
+                if (candidate.size >= minRequiredArrows) {
+                    return candidate
+                }
+                if (candidate.size > bestCandidate.size) {
+                    bestCandidate = candidate
+                }
+            }
+        }
+        if (bestCandidate.isNotEmpty()) return bestCandidate
+
+        // Ultra-safe deterministic fallback on unmasked grid
+        return generateGuaranteedSolvableSnakingArrows(
+            rows = rows,
+            cols = cols,
+            targetArrowCount = targetArrowCount,
+            minPathLen = 2,
+            maxPathLen = maxPathLen,
+            organicMask = false,
+            seed = baseSeed
+        )
     }
 
     /**
@@ -344,117 +398,4 @@ object LevelGenerator {
     }
 
     private fun cellKey(row: Int, col: Int): Long = (row.toLong() shl 16) or (col.toLong() and 0xFFFFL)
-
-    /**
-     * Level 1: Exact layout matching Reference Image 3 (3 straight vertical arrows: UP, UP, DOWN).
-     */
-    private fun buildTutorialLevel1(): LevelSpec = LevelSpec(
-        levelNumber = 1,
-        rows = 5,
-        cols = 5,
-        arrows = listOf(
-            ArrowTile(
-                id = 1,
-                points = listOf(GridPoint(3, 1), GridPoint(2, 1), GridPoint(1, 1)),
-                direction = Direction.UP,
-                color = ArrowColor.BLUE
-            ),
-            ArrowTile(
-                id = 2,
-                points = listOf(GridPoint(3, 2), GridPoint(2, 2), GridPoint(1, 2)),
-                direction = Direction.UP,
-                color = ArrowColor.GREEN
-            ),
-            ArrowTile(
-                id = 3,
-                points = listOf(GridPoint(1, 3), GridPoint(2, 3), GridPoint(3, 3)),
-                direction = Direction.DOWN,
-                color = ArrowColor.PURPLE
-            )
-        ),
-        difficulty = DifficultyTier.BEGINNER
-    )
-
-    /**
-     * Level 2: Exact layout matching Reference Image 4 (5 nested interlocking winding arrows on 6x6 dotted grid).
-     */
-    private fun buildWarmupLevel2(): LevelSpec = LevelSpec(
-        levelNumber = 2,
-        rows = 6,
-        cols = 6,
-        arrows = listOf(
-            // Outer wrapping arrow going down left edge & right along top edge
-            ArrowTile(
-                id = 1,
-                points = listOf(
-                    GridPoint(4, 3), GridPoint(4, 2), GridPoint(4, 1), GridPoint(4, 0),
-                    GridPoint(3, 0), GridPoint(2, 0), GridPoint(1, 0), GridPoint(0, 0),
-                    GridPoint(0, 1), GridPoint(0, 2), GridPoint(0, 3)
-                ),
-                direction = Direction.RIGHT,
-                color = ArrowColor.BLUE
-            ),
-            // Inner right->up->left hook
-            ArrowTile(
-                id = 2,
-                points = listOf(
-                    GridPoint(3, 4), GridPoint(2, 4), GridPoint(1, 4),
-                    GridPoint(1, 3), GridPoint(1, 2), GridPoint(1, 1)
-                ),
-                direction = Direction.LEFT,
-                color = ArrowColor.GREEN
-            ),
-            // Left vertical L-arrow pointing UP
-            ArrowTile(
-                id = 3,
-                points = listOf(
-                    GridPoint(3, 2), GridPoint(3, 1), GridPoint(2, 1)
-                ),
-                direction = Direction.UP,
-                color = ArrowColor.PURPLE
-            ),
-            // Center U-loop pointing DOWN
-            ArrowTile(
-                id = 4,
-                points = listOf(
-                    GridPoint(3, 2), GridPoint(2, 2), GridPoint(2, 3), GridPoint(3, 3)
-                ).let {
-                    // Ensure disjoint cells: use (2,2) -> (2,3) -> (3,3) if (3,2) is taken by arrow 3
-                    listOf(GridPoint(2, 2), GridPoint(2, 3), GridPoint(3, 3))
-                },
-                direction = Direction.DOWN,
-                color = ArrowColor.RED
-            ),
-            // Bottom-right short arrow pointing RIGHT
-            ArrowTile(
-                id = 5,
-                points = listOf(GridPoint(4, 4), GridPoint(4, 5)),
-                direction = Direction.RIGHT,
-                color = ArrowColor.YELLOW
-            )
-        ),
-        difficulty = DifficultyTier.BEGINNER
-    )
-
-    /**
-     * Level 3: Clean 6x6 interlocking spiral puzzle (7 snaking arrows).
-     */
-    private fun buildWarmupLevel3(): LevelSpec {
-        val arrows = generateGuaranteedSolvableSnakingArrows(
-            rows = 6,
-            cols = 6,
-            targetArrowCount = 7,
-            minPathLen = 3,
-            maxPathLen = 6,
-            organicMask = false,
-            seed = 30303L
-        )
-        return LevelSpec(
-            levelNumber = 3,
-            rows = 6,
-            cols = 6,
-            arrows = arrows,
-            difficulty = DifficultyTier.BEGINNER
-        )
-    }
 }

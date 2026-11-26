@@ -59,7 +59,7 @@ class PreferencesManager(private val context: Context) {
         PlayerPreferences(
             coins = (prefs[Keys.COINS] ?: PlayerPreferences.DEFAULT_STARTING_COINS).coerceAtLeast(0),
             freeHints = (prefs[Keys.FREE_HINTS] ?: PlayerPreferences.DEFAULT_FREE_HINTS).coerceAtLeast(0),
-            highestUnlockedLevel = (prefs[Keys.HIGHEST_UNLOCKED_LEVEL] ?: 1).coerceIn(1, 500),
+            highestUnlockedLevel = (prefs[Keys.HIGHEST_UNLOCKED_LEVEL] ?: 1).coerceAtLeast(1),
             selectedThemeId = prefs[Keys.SELECTED_THEME] ?: PlayerPreferences.DEFAULT_THEME_ID,
             unlockedThemeIds = prefs[Keys.UNLOCKED_THEMES] ?: setOf(PlayerPreferences.DEFAULT_THEME_ID),
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
@@ -119,7 +119,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     suspend fun unlockUpToLevel(levelNumber: Int) {
-        val target = levelNumber.coerceIn(1, 500)
+        val target = levelNumber.coerceAtLeast(1)
         context.arrowPuzzleDataStore.edit { prefs ->
             val current = prefs[Keys.HIGHEST_UNLOCKED_LEVEL] ?: 1
             if (target > current) {

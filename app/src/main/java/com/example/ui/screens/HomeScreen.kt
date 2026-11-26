@@ -62,6 +62,7 @@ import com.example.R
 import com.example.game.LevelGenerator
 import com.example.ui.components.CoinBadge
 import com.example.ui.components.GlossyButton
+import com.example.ui.components.HomeBannerAd
 import com.example.ui.theme.LocalAppStrings
 import com.example.ui.theme.LocalGameTheme
 import com.example.viewmodel.AppUiState
@@ -69,6 +70,7 @@ import com.example.viewmodel.AppUiState
 @Composable
 fun HomeScreen(
     appState: AppUiState,
+    bannerAdUnitId: String = "",
     onPlayNextLevel: () -> Unit,
     onOpenLevels: () -> Unit,
     onOpenDailyChallenge: () -> Unit,
@@ -80,7 +82,9 @@ fun HomeScreen(
     val theme = LocalGameTheme.current
     val strings = LocalAppStrings.current
     val nextLevel = appState.preferences.highestUnlockedLevel
-    val progressRatio = (appState.completedLevelsCount.toFloat() / LevelGenerator.TOTAL_LEVELS).coerceIn(0f, 1f)
+    val milestoneSpan = 50
+    val nextMilestoneTarget = ((appState.completedLevelsCount / milestoneSpan) + 1) * milestoneSpan
+    val progressRatio = ((appState.completedLevelsCount % milestoneSpan).toFloat() / milestoneSpan).coerceIn(0f, 1f)
     val hasUnclaimedReward = appState.isDailyRewardAvailableToday || appState.milestones.any { it.isReadyToClaim }
 
     val infiniteTransition = rememberInfiniteTransition(label = "home_float")
@@ -107,11 +111,17 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .widthIn(max = 560.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .widthIn(max = 560.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             // Top Bar: Coins, Sound Toggle, Settings
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -220,7 +230,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Progress: ${appState.completedLevelsCount} / ${LevelGenerator.TOTAL_LEVELS}",
+                            text = "Cleared: ${appState.completedLevelsCount} • Next Goal: $nextMilestoneTarget",
                             style = MaterialTheme.typography.titleMedium,
                             color = theme.onCardText
                         )
@@ -277,7 +287,7 @@ fun HomeScreen(
             ) {
                 HomeMenuTile(
                     title = strings.levels,
-                    subtitle = "500 Puzzles",
+                    subtitle = "∞ Unlimited",
                     icon = Icons.Rounded.GridView,
                     topColor = Color(0xFF38BDF8),
                     bottomColor = Color(0xFF0284C7),
@@ -327,7 +337,15 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (bannerAdUnitId.isNotBlank()) {
+                HomeBannerAd(
+                    adUnitId = bannerAdUnitId,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

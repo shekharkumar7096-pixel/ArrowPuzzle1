@@ -9,7 +9,7 @@ import com.example.audio.GameSoundManager
 import com.example.data.GameRepository
 import com.example.data.HintSpendOutcome
 import com.example.data.MilestoneDefinition
-import com.example.data.ads.RewardedAdController
+import com.example.data.ads.GameAdController
 import com.example.data.ads.RewardedOfferType
 import com.example.data.local.ArrowPuzzleDatabase
 import com.example.data.local.DailyCompletionEntity
@@ -93,7 +93,10 @@ sealed interface RewardedAdUiState {
 }
 
 sealed interface GameNavEvent {
-    data class OpenLevelComplete(val summary: LevelCompletionSummary) : GameNavEvent
+    data class OpenLevelComplete(
+        val summary: LevelCompletionSummary,
+        val showInterstitial: Boolean = false
+    ) : GameNavEvent
     data class ShowToast(val message: String) : GameNavEvent
 }
 
@@ -103,7 +106,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
     private val prefsManager = PreferencesManager(application)
     val repository = GameRepository(database.gameDao(), prefsManager)
     val soundManager = GameSoundManager(application)
-    val rewardedAdController = RewardedAdController(repository.adManager)
+    val adController = GameAdController(repository.adManager)
 
     val appState: StateFlow<AppUiState> = combine(
         repository.preferences,
@@ -156,7 +159,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
     val navEvents: SharedFlow<GameNavEvent> = _navEvents.asSharedFlow()
 
     fun initializeAds(context: Context) {
-        rewardedAdController.initializeAndPreload(context)
+        adController.initializeAndPreload(context)
     }
 
     fun startLevel(levelNumber: Int) {
@@ -295,7 +298,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
                 isReplay = isReplay
             )
 
-            if (state.level.isDaily && state.level.dailyDateKey != null) {
+            val showInterstitial = if (state.level.isDaily && state.level.dailyDateKey != null) {
                 repository.recordDailyCompletion(
                     dateKey = state.level.dailyDateKey,
                     stars = stars,
@@ -303,6 +306,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
                     score = score,
                     coinsEarned = coinsEarned
                 )
+                false
             } else {
                 repository.recordLevelCompletion(
                     levelNumber = state.level.levelNumber,
@@ -329,7 +333,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
                 bonusClaimed = false
             )
             _lastCompletion.value = summary
-            _navEvents.tryEmit(GameNavEvent.OpenLevelComplete(summary))
+            _navEvents.tryEmit(GameNavEvent.OpenLevelComplete(summary, showInterstitial))
         }
     }
 
@@ -485,7 +489,7 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
             _rewardedAdState.value = RewardedAdUiState.Error(offer, "Host activity unavailable.")
             return
         }
-        rewardedAdController.loadAndShowRewardedAd(
+        adController.loadAndShowRewardedAd(
             activity = activity,
             offer = offer,
             onLoadingStarted = {
@@ -541,6 +545,14 @@ class ArrowPuzzleViewModel(application: Application) : AndroidViewModel(applicat
                         )
                         _navEvents.tryEmit(GameNavEvent.ShowToast("Coins doubled!"))
                     }
+                }
+
+                RewardedOfferType.REVIVE_HEARTS -> {
+                    soundManager.playCoinCollect()
+                    _gameplayState.update {
+                        it.copy(heartsRemaining = 3, blockedArrowIds = emptySet(), blockedFeedback = null)
+                    }
+                    _navEvents.tryEmit(GameNavEvent.ShowToast("+3 Hearts refilled!"))
                 }
             }
         }

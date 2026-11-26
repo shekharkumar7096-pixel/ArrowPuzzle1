@@ -29,6 +29,7 @@ import com.example.ui.screens.GameplayScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LevelCompleteScreen
 import com.example.ui.screens.LevelSelectScreen
+import com.example.ui.screens.PrivacyPolicyScreen
 import com.example.ui.screens.RewardScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SplashScreen
@@ -47,6 +48,7 @@ object Routes {
     const val ROUTE_DAILY_CHALLENGE = "daily_challenge"
     const val ROUTE_THEMES = "themes"
     const val ROUTE_SETTINGS = "settings"
+    const val ROUTE_PRIVACY_POLICY = "privacy_policy"
     const val ROUTE_REWARDS = "rewards"
 }
 
@@ -76,8 +78,17 @@ fun ArrowPuzzleApp(
         viewModel.navEvents.collect { event ->
             when (event) {
                 is GameNavEvent.OpenLevelComplete -> {
-                    navController.navigate(Routes.ROUTE_LEVEL_COMPLETE) {
-                        popUpTo(Routes.ROUTE_GAMEPLAY) { inclusive = true }
+                    val navigateToComplete = {
+                        navController.navigate(Routes.ROUTE_LEVEL_COMPLETE) {
+                            popUpTo(Routes.ROUTE_GAMEPLAY) { inclusive = true }
+                        }
+                    }
+                    if (event.showInterstitial && hostActivity != null) {
+                        viewModel.adController.showWinInterstitialIfReady(hostActivity) {
+                            navigateToComplete()
+                        }
+                    } else {
+                        navigateToComplete()
                     }
                 }
 
@@ -110,6 +121,7 @@ fun ArrowPuzzleApp(
                 composable(Routes.ROUTE_HOME) {
                     HomeScreen(
                         appState = appState,
+                        bannerAdUnitId = viewModel.repository.adManager.effectiveBannerUnitId(),
                         onPlayNextLevel = {
                             viewModel.soundManager.playButtonClick()
                             viewModel.startLevel(appState.preferences.highestUnlockedLevel)
@@ -170,6 +182,9 @@ fun ArrowPuzzleApp(
                         onWatchHintOffer = {
                             viewModel.startRewardedOffer(RewardedOfferType.EXTRA_HINT)
                         },
+                        onWatchReviveOffer = {
+                            viewModel.startRewardedOffer(RewardedOfferType.REVIVE_HEARTS)
+                        },
                         onDismissLowCoins = viewModel::dismissInsufficientCoinsDialog,
                         onRefillHearts = viewModel::refillHeartsWithCoins,
                         onGoHome = {
@@ -192,7 +207,7 @@ fun ArrowPuzzleApp(
                                 if (summary.isDaily) {
                                     viewModel.startLevel(appState.preferences.highestUnlockedLevel)
                                 } else {
-                                    val next = (summary.levelNumber + 1).coerceAtMost(LevelGenerator.TOTAL_LEVELS)
+                                    val next = summary.levelNumber + 1
                                     viewModel.startLevel(next)
                                 }
                                 navController.navigate(Routes.ROUTE_GAMEPLAY) {
@@ -267,7 +282,20 @@ fun ArrowPuzzleApp(
                         onToggleMusic = viewModel::toggleMusic,
                         onToggleVibration = viewModel::toggleVibration,
                         onSelectLanguage = viewModel::setLanguage,
+                        onOpenPrivacyPolicy = {
+                            viewModel.soundManager.playButtonClick()
+                            navController.navigate(Routes.ROUTE_PRIVACY_POLICY)
+                        },
                         onResetProgress = viewModel::resetProgress
+                    )
+                }
+
+                composable(Routes.ROUTE_PRIVACY_POLICY) {
+                    PrivacyPolicyScreen(
+                        onBack = {
+                            viewModel.soundManager.playButtonClick()
+                            navController.popBackStack()
+                        }
                     )
                 }
 
@@ -300,7 +328,6 @@ fun ArrowPuzzleApp(
                     ?.message
                 RewardedOfferDialog(
                     offer = offer,
-                    adUnitId = viewModel.repository.adManager.rewardedUnitIdFor(offer),
                     isLoading = isLoading,
                     errorMessage = errorMessage,
                     onCancel = viewModel::cancelRewardedOffer,

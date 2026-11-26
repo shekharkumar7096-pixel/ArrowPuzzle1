@@ -481,7 +481,6 @@ fun ConfettiOverlay(modifier: Modifier = Modifier) {
 @Composable
 fun RewardedOfferDialog(
     offer: RewardedOfferType,
-    adUnitId: String,
     isLoading: Boolean,
     errorMessage: String?,
     onCancel: () -> Unit,
@@ -517,9 +516,9 @@ fun RewardedOfferDialog(
                 )
                 Text(
                     text = when {
-                        isLoading -> "Loading Google AdMob Test Rewarded Ad..."
+                        isLoading -> "Loading Rewarded Ad..."
                         errorMessage != null -> "Ad failed to load: $errorMessage"
-                        else -> "Watch a short Google AdMob test rewarded video to unlock ${offer.rewardSummary}."
+                        else -> "Watch a short rewarded ad to unlock ${offer.rewardSummary}."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (errorMessage != null) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSurface,
@@ -533,12 +532,6 @@ fun RewardedOfferDialog(
                             .clip(RoundedCornerShape(50))
                     )
                 }
-                Text(
-                    text = "Test Ad Unit: $adUnitId",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
             }
         },
         confirmButton = {

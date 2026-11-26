@@ -70,13 +70,13 @@ fun SettingsScreen(
     onToggleMusic: () -> Unit,
     onToggleVibration: () -> Unit,
     onSelectLanguage: (String) -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
     onResetProgress: () -> Unit
 ) {
     val theme = LocalGameTheme.current
     val strings = LocalAppStrings.current
     val prefs = appState.preferences
 
-    var showPrivacyDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
 
@@ -267,7 +267,7 @@ fun SettingsScreen(
                         SettingsLinkRow(
                             icon = Icons.Rounded.Policy,
                             title = strings.privacyPolicy,
-                            onClick = { showPrivacyDialog = true },
+                            onClick = onOpenPrivacyPolicy,
                             testTag = "settings_privacy_button"
                         )
                         HorizontalDivider(color = theme.cardBorder.copy(alpha = 0.6f))
@@ -298,26 +298,6 @@ fun SettingsScreen(
         }
     }
 
-    if (showPrivacyDialog) {
-        AlertDialog(
-            onDismissRequest = { showPrivacyDialog = false },
-            title = { Text(strings.privacyPolicy) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text(
-                        text = "Arrow Puzzle operates offline-first and stores all level progress, stars, daily challenge completions, coins, unlocked themes, and preferences locally on your device using Android Room and DataStore.\n\n" +
-                            "We do not collect, sell, or transmit your personal information, contacts, photos, or location. No broad storage permissions are requested.\n\n" +
-                            "If optional Google AdMob ad units are enabled in a future store build, ad delivery will follow Google Play Families & Privacy policies with user consent controls.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPrivacyDialog = false }) { Text("Close") }
-            }
-        )
-    }
-
     if (showTermsDialog) {
         AlertDialog(
             onDismissRequest = { showTermsDialog = false },
@@ -328,7 +308,7 @@ fun SettingsScreen(
                         text = "Welcome to Arrow Puzzle!\n\n" +
                             "1. Gameplay & Virtual Coins: Coins and free hints earned in Arrow Puzzle are virtual in-game items with no real-world monetary value and cannot be transferred or redeemed for cash.\n\n" +
                             "2. Local Storage: Progress is saved locally on your device. Resetting progress or uninstalling the application removes local save data.\n\n" +
-                            "3. Fair Use: All 500 puzzle levels and daily challenges are deterministically verified to be solvable for personal, non-commercial entertainment.",
+                            "3. Fair Use: All unlimited puzzle levels and daily challenges are deterministically verified to be solvable for personal, non-commercial entertainment.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

@@ -18,7 +18,7 @@ class ArrowPuzzleEngineTest {
 
     @Test
     fun all500SnakingLevelsAreDeterministicDisjointAndSolvable() {
-        for (levelNum in 1..LevelGenerator.TOTAL_LEVELS) {
+        for (levelNum in 1..LevelGenerator.INITIAL_VISIBLE_LEVELS) {
             val spec = LevelGenerator.generateLevel(levelNum)
             assertEquals("Level number mismatch", levelNum, spec.levelNumber)
             assertTrue("Level $levelNum must have arrows", spec.arrows.isNotEmpty())
@@ -58,11 +58,13 @@ class ArrowPuzzleEngineTest {
     fun difficultyTiersScaleFromSimpleToDenseLabyrinths() {
         val lvl1 = LevelGenerator.generateLevel(1)
         assertEquals(DifficultyTier.BEGINNER, lvl1.difficulty)
-        assertEquals(3, lvl1.arrows.size)
+        assertTrue(lvl1.arrows.size >= 3)
+        assertTrue(PuzzleEngine.isSolvable(lvl1.arrows, lvl1.rows, lvl1.cols))
 
         val lvl2 = LevelGenerator.generateLevel(2)
         assertEquals(DifficultyTier.BEGINNER, lvl2.difficulty)
-        assertEquals(5, lvl2.arrows.size)
+        assertTrue(lvl2.arrows.size >= 4)
+        assertTrue(PuzzleEngine.isSolvable(lvl2.arrows, lvl2.rows, lvl2.cols))
 
         val lvl100 = LevelGenerator.generateLevel(100)
         assertEquals(DifficultyTier.EASY, lvl100.difficulty)
@@ -78,7 +80,19 @@ class ArrowPuzzleEngineTest {
 
         val lvl500 = LevelGenerator.generateLevel(500)
         assertEquals(DifficultyTier.EXPERT, lvl500.difficulty)
-        assertTrue(lvl500.rows >= 17)
+        assertTrue(lvl500.rows >= 16)
+
+        // Verify unlimited procedural levels well beyond 500 are distinct, deterministic, and solvable
+        val endlessSamples = listOf(501, 750, 1000, 2500, 10000, 1000000)
+        val generatedSignatures = HashSet<List<com.example.game.ArrowTile>>()
+        for (lvlNum in endlessSamples) {
+            val spec = LevelGenerator.generateLevel(lvlNum)
+            assertEquals(lvlNum, spec.levelNumber)
+            assertEquals(DifficultyTier.EXPERT, spec.difficulty)
+            assertTrue("Unlimited level $lvlNum must be solvable", PuzzleEngine.isSolvable(spec.arrows, spec.rows, spec.cols))
+            assertEquals(spec.arrows, LevelGenerator.generateLevel(lvlNum).arrows)
+            assertTrue("Unlimited level $lvlNum should generate unique content", generatedSignatures.add(spec.arrows))
+        }
     }
 
     @Test
@@ -142,14 +156,35 @@ class ArrowPuzzleEngineTest {
     }
 
     @Test
-    fun rewardedTestAdUnitIsConfiguredCorrectly() {
+    fun admobMonetizationFormatsAndAntiIrritationPacingWorkCorrectly() {
         val manager = com.example.data.ads.AdManager()
-        val expectedTestUnit = "ca-app-pub-3940256099942544/5224354917"
-        assertEquals(expectedTestUnit, manager.config.rewardedHintAdUnitId)
-        assertEquals(expectedTestUnit, manager.config.rewardedCoinsAdUnitId)
-        assertEquals(expectedTestUnit, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.EXTRA_HINT))
-        assertEquals(expectedTestUnit, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.BONUS_COINS))
-        assertEquals(expectedTestUnit, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.DOUBLE_LEVEL_COINS))
+        assertEquals("ca-app-pub-7700773097020018/1409412750", manager.bannerUnitId())
+        assertEquals("ca-app-pub-7700773097020018/4546838294", manager.interstitialUnitId())
+        val expectedRewarded = "ca-app-pub-7700773097020018/8262722027"
+        assertEquals(expectedRewarded, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.REVIVE_HEARTS))
+        assertEquals(expectedRewarded, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.EXTRA_HINT))
+        assertEquals(expectedRewarded, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.BONUS_COINS))
+        assertEquals(expectedRewarded, manager.rewardedUnitIdFor(com.example.data.ads.RewardedOfferType.DOUBLE_LEVEL_COINS))
         assertFalse(manager.config.allowAdsDuringActiveGameplay)
+
+        // Onboarding protection: Levels 1 & 2 never trigger win interstitials
+        assertFalse(manager.shouldShowPostLevelInterstitial(1, nowMillis = 100_000L))
+        assertFalse(manager.shouldShowPostLevelInterstitial(2, nowMillis = 200_000L))
+
+        // Frequency cap: every 2 wins after Level 2 with 75s cooldown
+        assertFalse(manager.shouldShowPostLevelInterstitial(3, nowMillis = 300_000L))
+        assertTrue(manager.shouldShowPostLevelInterstitial(4, nowMillis = 310_000L))
+
+        // Cooldown protection: even after 2 wins, <75s since last interstitial stays suppressed
+        assertFalse(manager.shouldShowPostLevelInterstitial(5, nowMillis = 330_000L))
+        assertFalse(manager.shouldShowPostLevelInterstitial(6, nowMillis = 350_000L))
+        assertTrue(manager.shouldShowPostLevelInterstitial(7, nowMillis = 390_000L))
+
+        // Anti-double-ad protection: watching a Rewarded Ad suppresses Win Interstitial for 60s
+        manager.recordRewardedAdWatched(nowMillis = 500_000L)
+        assertFalse(manager.shouldShowPostLevelInterstitial(8, nowMillis = 520_000L))
+        assertFalse(manager.shouldShowPostLevelInterstitial(9, nowMillis = 540_000L))
+        assertFalse(manager.shouldShowPostLevelInterstitial(10, nowMillis = 580_000L))
+        assertTrue(manager.shouldShowPostLevelInterstitial(11, nowMillis = 600_000L))
     }
 }

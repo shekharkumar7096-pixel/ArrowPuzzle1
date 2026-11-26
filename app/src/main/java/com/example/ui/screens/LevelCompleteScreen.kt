@@ -83,7 +83,6 @@ fun LevelCompleteScreen(
 
     val nextLabel = when {
         summary.isDaily -> "Play Main Levels"
-        summary.levelNumber >= LevelGenerator.TOTAL_LEVELS -> "Replay Expert 500"
         else -> "${strings.levelLabel} ${summary.levelNumber + 1}"
     }
 

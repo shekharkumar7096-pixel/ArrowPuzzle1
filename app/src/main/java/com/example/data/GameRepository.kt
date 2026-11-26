@@ -61,9 +61,7 @@ class GameRepository(
         )
         gameDao.upsertLevelProgress(merged)
         preferencesManager.addCoins(coinsEarned)
-        if (levelNumber < LevelGenerator.TOTAL_LEVELS) {
-            preferencesManager.unlockUpToLevel(levelNumber + 1)
-        }
+        preferencesManager.unlockUpToLevel(levelNumber + 1)
     }
 
     suspend fun recordDailyCompletion(

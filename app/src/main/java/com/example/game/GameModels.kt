@@ -26,14 +26,15 @@ enum class ArrowColor(val label: String) {
 enum class DifficultyTier(
     val displayName: String,
     val levelRange: IntRange,
+    val rangeLabel: String,
     val baseCoinReward: Int,
     val baseScore: Int
 ) {
-    BEGINNER("Beginner", 1..50, 20, 100),
-    EASY("Normal", 51..150, 30, 180),
-    MEDIUM("Medium", 151..250, 45, 280),
-    HARD("Hard", 251..400, 60, 420),
-    EXPERT("Expert", 401..500, 80, 600);
+    BEGINNER("Beginner", 1..50, "1–50", 20, 100),
+    EASY("Normal", 51..150, "51–150", 30, 180),
+    MEDIUM("Medium", 151..250, "151–250", 45, 280),
+    HARD("Hard", 251..400, "251–400", 60, 420),
+    EXPERT("Expert", 401..Int.MAX_VALUE, "401+", 80, 600);
 
     companion object {
         fun forLevel(levelNumber: Int): DifficultyTier = when {

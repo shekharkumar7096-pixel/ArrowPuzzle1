@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -38,6 +39,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,11 +74,22 @@ fun LevelSelectScreen(
     var selectedTier by remember {
         mutableStateOf<DifficultyTier?>(DifficultyTier.forLevel(highestUnlocked))
     }
+    var extraUnlimitedBatches by remember { mutableIntStateOf(0) }
 
-    val levelsToDisplay = remember(selectedTier) {
-        val range = selectedTier?.levelRange ?: (1..LevelGenerator.TOTAL_LEVELS)
+    val maxDisplayLevel = maxOf(
+        LevelGenerator.INITIAL_VISIBLE_LEVELS,
+        ((highestUnlocked + 99) / 100) * 100
+    ) + (extraUnlimitedBatches * 100)
+
+    val levelsToDisplay = remember(selectedTier, maxDisplayLevel) {
+        val range = when (val tier = selectedTier) {
+            null -> 1..maxDisplayLevel
+            DifficultyTier.EXPERT -> tier.levelRange.first..maxDisplayLevel
+            else -> tier.levelRange
+        }
         range.toList()
     }
+    val canLoadMore = selectedTier == null || selectedTier == DifficultyTier.EXPERT
 
     SunburstBackground(animateRays = false) {
         Box(
@@ -122,7 +135,7 @@ fun LevelSelectScreen(
                             color = theme.onBackgroundText
                         )
                         Text(
-                            text = "${appState.completedLevelsCount} / ${LevelGenerator.TOTAL_LEVELS} Completed",
+                            text = "${appState.completedLevelsCount} Completed • ∞ Unlimited",
                             style = MaterialTheme.typography.labelMedium,
                             color = theme.onBackgroundText.copy(alpha = 0.88f)
                         )
@@ -164,7 +177,7 @@ fun LevelSelectScreen(
                         FilterChip(
                             selected = selectedTier == null,
                             onClick = { selectedTier = null },
-                            label = { Text("All (1–500)") },
+                            label = { Text("All (1–$maxDisplayLevel+)") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFFFFD600),
                                 selectedLabelColor = Color(0xFF1F2937),
@@ -179,7 +192,7 @@ fun LevelSelectScreen(
                             selected = selectedTier == tier,
                             onClick = { selectedTier = tier },
                             label = {
-                                Text("${tier.displayName} (${tier.levelRange.first}–${tier.levelRange.last})")
+                                Text("${tier.displayName} (${tier.rangeLabel})")
                             },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFFFFD600),
@@ -224,6 +237,31 @@ fun LevelSelectScreen(
                                     if (isUnlocked) onSelectLevel(levelNumber)
                                 }
                             )
+                        }
+                        if (canLoadMore) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Surface(
+                                    onClick = { extraUnlimitedBatches++ },
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = theme.primaryAccent,
+                                    shadowElevation = 4.dp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 6.dp)
+                                        .testTag("load_more_levels_button")
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 14.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Load +100 More Levels (${maxDisplayLevel + 1}–${maxDisplayLevel + 100})",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -141,7 +141,7 @@ fun SplashScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "500 Handcrafted Solvable Levels",
+                    text = "Unlimited Solvable Levels",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
